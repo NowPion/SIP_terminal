@@ -1,0 +1,8 @@
+<include>
+  <extension name="local_extensions">
+    <condition field="destination_number" expression="^(\d{4})$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="bridge" data="user/$1@$${domain}"/>
+    </condition>
+  </extension>
+</include>

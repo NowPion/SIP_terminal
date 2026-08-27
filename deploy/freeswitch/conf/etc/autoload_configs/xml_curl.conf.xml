@@ -1,0 +1,9 @@
+<configuration name="xml_curl.conf" description="cURL XML Gateway">
+  <bindings>
+    <binding name="directory_api">
+      <param name="gateway-url" value="http://go-api:8080/api/v1/fsw/directory" bindings="directory"/>
+      <param name="method" value="POST"/>
+      <param name="timeout" value="5"/>
+    </binding>
+  </bindings>
+</configuration>

@@ -1,0 +1,29 @@
+services:
+  go-api:
+    build: ../server
+    container_name: sip-api
+    restart: unless-stopped
+    environment:
+      MYSQL_DSN: "root:root@tcp(host.docker.internal:7778)/sip_terminal?charset=utf8mb4&parseTime=True&loc=Local"
+      JWT_SECRET: "dev-secret-change-me"
+      PORT: "8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+
+  freeswitch:
+    image: safarov/freeswitch:latest
+    container_name: sip-fs
+    restart: unless-stopped
+    environment:
+      SOUND_RATES: "8000:16000"
+    volumes:
+      - ./freeswitch/conf/etc:/etc/freeswitch
+    depends_on:
+      - go-api
+    ports:
+      - "5060:5060/udp"
+      - "5066:5066/tcp"
+      - "7443:7443/tcp"
+      - "16384-16404:16384-16404/udp"
