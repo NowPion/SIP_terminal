@@ -21,10 +21,9 @@ func New(st *store.Store, jwtSecret string) *gin.Engine {
 		api.POST("/auth/login", h.Login)
 		authed := api.Group("", auth.Require(jwtSecret))
 		authed.GET("/me/sip-account", h.MeSipAccount)
-		// Task4 追加点：
-		// authed.POST("/calls", h.CreateCall)
-		// authed.GET("/calls", h.ListCalls)
-		// authed.DELETE("/calls/:id", h.DeleteCall)
+		authed.POST("/calls", h.CreateCall)
+		authed.GET("/calls", h.ListCalls)
+		authed.DELETE("/calls/:id", h.DeleteCall)
 	}
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	return r
