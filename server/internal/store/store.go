@@ -23,13 +23,13 @@ type Store struct {
 
 // Open 连接生产 MySQL。
 func Open(dsn string) (*Store, error) {
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
 	return finish(db, err)
 }
 
 // OpenSQLite 仅用于单元测试（纯 Go 驱动，Windows 免 cgo）。
 func OpenSQLite(path string) (*Store, error) {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{TranslateError: true})
 	return finish(db, err)
 }
 
@@ -41,6 +41,34 @@ func finish(db *gorm.DB, err error) (*Store, error) {
 		return nil, err
 	}
 	return &Store{DB: db}, nil
+}
+
+// RegisterUser 原子创建用户+SIP账号：进程内互斥串行化分机分配，
+// 事务保证部分失败全部回滚。多实例部署时由 extension 唯一索引兜底。
+func (s *Store) RegisterUser(ctx context.Context, username, passwordHash string) (*model.User, *model.SipAccount, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u := &model.User{Username: username, PasswordHash: passwordHash}
+	var acc *model.SipAccount
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(u).Error; err != nil {
+			return err
+		}
+		ext, e := allocateInTx(ctx, tx)
+		if e != nil {
+			return e
+		}
+		pass, e := RandomSecret(20)
+		if e != nil {
+			return e
+		}
+		acc = &model.SipAccount{UserID: u.ID, Extension: ext, SipPassword: pass, Enabled: true}
+		return tx.Create(acc).Error
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return u, acc, nil
 }
 
 // Close 关闭底层连接池。测试中必须在 t.TempDir 清理前调用，否则 Windows 下文件被占用无法删除。
@@ -57,9 +85,12 @@ func (s *Store) Close() error {
 func (s *Store) AllocateExtension(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return allocateInTx(ctx, s.DB.WithContext(ctx))
+}
 
+func allocateInTx(ctx context.Context, tx *gorm.DB) (string, error) {
 	var exts []string
-	if err := s.DB.WithContext(ctx).Model(&model.SipAccount{}).Pluck("extension", &exts).Error; err != nil {
+	if err := tx.Model(&model.SipAccount{}).Pluck("extension", &exts).Error; err != nil {
 		return "", err
 	}
 	used := make(map[string]bool, len(exts))

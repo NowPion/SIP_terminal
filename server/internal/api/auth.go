@@ -1,15 +1,16 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"github.com/nie/sip-terminal/server/internal/auth"
 	"github.com/nie/sip-terminal/server/internal/model"
-	"github.com/nie/sip-terminal/server/internal/store"
 )
 
 const tokenTTL = 30 * 24 * time.Hour // 第一版：长效token，不做refresh
@@ -35,24 +36,13 @@ func (h *Handler) Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "hash"})
 		return
 	}
-	u := model.User{Username: req.Username, PasswordHash: string(hash)}
-	if err := h.ST.DB.Create(&u).Error; err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
-		return
-	}
-	ext, err := h.ST.AllocateExtension(c.Request.Context())
+	u, acc, err := h.ST.RegisterUser(c.Request.Context(), req.Username, string(hash))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "allocate extension"})
-		return
-	}
-	sippass, err := store.RandomSecret(20)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "random"})
-		return
-	}
-	acc := model.SipAccount{UserID: u.ID, Extension: ext, SipPassword: sippass, Enabled: true}
-	if err := h.ST.DB.Create(&acc).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "create account"})
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "register"})
 		return
 	}
 	token, err := auth.MakeToken(h.Secret, u.ID, u.Username, tokenTTL)
@@ -62,14 +52,14 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"token":       token,
-		"sip_account": sipAccountDTO{Extension: ext, Password: sippass},
+		"sip_account": sipAccountDTO{Extension: acc.Extension, Password: acc.SipPassword},
 	})
 }
 
 func (h *Handler) Login(c *gin.Context) {
 	var req credReq
 	if c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名3-32位，密码至少6位"})
 		return
 	}
 	var u model.User

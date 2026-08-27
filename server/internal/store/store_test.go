@@ -68,6 +68,17 @@ func TestAllocateExtensionFillsGapAfterDelete(t *testing.T) {
 	}
 }
 
+func TestDuplicateExtensionInsertErrors(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.DB.Create(&model.SipAccount{Extension: "1001", SipPassword: "x", Enabled: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	err := s.DB.Create(&model.SipAccount{Extension: "1001", SipPassword: "y", Enabled: true}).Error
+	if err == nil {
+		t.Fatal("unique index should reject duplicate extension")
+	}
+}
+
 func TestRandomSecretLength(t *testing.T) {
 	s, err := store.RandomSecret(20)
 	if err != nil || len(s) != 20 {
