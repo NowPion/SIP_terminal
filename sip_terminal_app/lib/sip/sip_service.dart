@@ -217,7 +217,7 @@ class SipService {
         _finalize(SipDisposition.busy, '对方忙');
       case SipCallKind.failed:
         if (_accepted) {
-          _finalize(SipDisposition.answered, '通话结束');
+          _finalize(SipDisposition.answered, '通话已结束');
         } else if (_dir == SipCallDir.incoming) {
           _finalize(SipDisposition.missed, '未接听');
         } else {
@@ -225,11 +225,11 @@ class SipService {
         }
       case SipCallKind.ended:
         if (_accepted) {
-          _finalize(SipDisposition.answered, '通话结束');
+          _finalize(SipDisposition.answered, '通话已结束');
         } else if (_dir == SipCallDir.incoming) {
           _finalize(SipDisposition.missed, '未接听');
         } else {
-          _finalize(SipDisposition.noAnswer, '无人接听');
+          _finalize(SipDisposition.noAnswer, '无应答');
         }
     }
   }

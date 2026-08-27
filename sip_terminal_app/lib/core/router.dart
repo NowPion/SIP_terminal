@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_page.dart';
+import '../features/call/call_page.dart';
 import '../features/dialpad/dialpad_page.dart';
 import '../features/shell/home_shell.dart';
 
@@ -64,16 +65,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // F6 临时占位：拨号盘呼叫后跳转，F6 用真实通话页替换。
+      // 通话页：全屏模态；状态由 sipStateProvider 驱动，number 仅展示兜底
       GoRoute(
         path: '/call',
-        builder: (_, state) {
-          final number = state.uri.queryParameters['number'] ?? '';
-          return Scaffold(
-            appBar: AppBar(title: const Text('通话')),
-            body: Center(child: Text('通话中 $number')),
-          );
-        },
+        pageBuilder: (_, state) => MaterialPage<void>(
+          fullscreenDialog: true,
+          key: state.pageKey,
+          child: CallPage(number: state.uri.queryParameters['number']),
+        ),
       ),
     ],
   );

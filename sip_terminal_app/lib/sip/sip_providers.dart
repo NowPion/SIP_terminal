@@ -1,6 +1,12 @@
+import 'dart:async';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../data/app_db.dart';
+import '../data/providers.dart';
+import '../data/sync_repository.dart';
 import '../features/auth/auth_controller.dart';
 import 'call_engine.dart';
 import 'sip_service.dart';
@@ -9,13 +15,37 @@ import 'ua_call_engine.dart';
 final callEngineProvider = Provider<CallEngine>((_) => UaCallEngine());
 
 final sipServiceProvider = Provider<SipService>((ref) {
+  final db = ref.watch(appDbProvider);
+  final sync = ref.watch(syncRepositoryProvider);
   final service = SipService(
     ref.watch(callEngineProvider),
-    onCallFinished: (_) {},
+    onCallFinished: (log) {
+      // 通话终态：先落库（pushed=false 入队），再尽力上报；失败留待下次
+      unawaited(_recordCall(db, sync, log));
+    },
   );
   ref.onDispose(service.dispose);
   return service;
 });
+
+Future<void> _recordCall(AppDb db, SyncRepository sync, SipCallLog log) async {
+  try {
+    await db
+        .into(db.localCalls)
+        .insert(
+          LocalCallsCompanion.insert(
+            remoteNumber: log.remoteNumber,
+            direction: log.direction,
+            disposition: log.disposition,
+            startedAt: log.startedAt,
+            durationSec: Value(log.durationSec),
+          ),
+        );
+    await sync.pushPending();
+  } catch (_) {
+    // 落库/上报失败不向上抛（回调无法恢复）；未推送行由下次 pushPending 重试
+  }
+}
 
 final sipStateProvider = StreamProvider<SipServiceState>(
   (ref) => ref.watch(sipServiceProvider).stateStream,
