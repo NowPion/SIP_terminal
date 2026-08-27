@@ -99,3 +99,35 @@ func TestDirectoryDisabledAccountNotFound(t *testing.T) {
 		t.Fatalf("disabled account must be not-found, got %s", rec.Body.String())
 	}
 }
+
+func TestDirectoryFallsBackToUserField(t *testing.T) {
+	r, _ := newTestRouter(t)
+	reg := postJSON(r, "/api/v1/auth/register", map[string]string{"username": "fbak01", "password": "secret6"})
+	if reg.Code != http.StatusOK {
+		t.Fatal("seed register failed")
+	}
+	form := directoryForm("") // key_value empty
+	form.Set("user", "1001")
+	if !strings.Contains(fsDirectoryPost(r, form).Body.String(), `<user id="1001">`) {
+		t.Fatal("expected lookup via user field fallback")
+	}
+}
+
+func TestDirectoryEmptyUserReturnsNotFound(t *testing.T) {
+	r, _ := newTestRouter(t)
+	rec := fsDirectoryPost(r, url.Values{"section": {"directory"}})
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `<result status="not found"/>`) {
+		t.Fatalf("want 200 not-found got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDirectoryMaliciousDomainIsEscaped(t *testing.T) {
+	r, _ := newTestRouter(t)
+	postJSON(r, "/api/v1/auth/register", map[string]string{"username": "esc01", "password": "secret6"})
+	form := directoryForm("1001")
+	form.Set("domain", `fs.local"></domain><user id="9999"><params><param name="a1-hash" value="x`)
+	body := fsDirectoryPost(r, form).Body.String()
+	if strings.Contains(body, `<user id="9999">`) || !strings.Contains(body, "&lt;/domain&gt;") {
+		t.Fatalf("injection payload not neutralized:\n%s", body)
+	}
+}

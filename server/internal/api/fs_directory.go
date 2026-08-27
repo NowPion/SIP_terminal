@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/xml"
 	"fmt"
 	"net/http"
 
@@ -13,6 +15,8 @@ import (
 
 // mod_xml_curl 约定：任何情况回 HTTP 200，业务结果用 XML 表达。
 // 响应含认证材料（a1-hash），本路由只允许内网暴露，禁止公网代理。
+// 渲染已做注入加固：所有客户端可控字段经 xmlEsc 转义后入模板，
+// a1-hash 在原始三元组上重算，转义不影响认证数学。
 const notFoundXML = `<document type="freeswitch/xml">
   <section name="result">
     <result status="not found"/>
@@ -51,6 +55,16 @@ func directoryHA1(ext, domain, pass string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func xmlEsc(s string) string {
+	var b bytes.Buffer
+	xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+func respondXML(c *gin.Context, body string) {
+	c.Data(http.StatusOK, "text/xml; charset=utf-8", []byte(body))
+}
+
 func (h *Handler) FSWDirectory(c *gin.Context) {
 	user := c.PostForm("key_value")
 	if user == "" {
@@ -61,15 +75,21 @@ func (h *Handler) FSWDirectory(c *gin.Context) {
 		domain = "fs.local"
 	}
 	if user == "" {
-		c.Data(http.StatusOK, "text/xml; charset=utf-8", []byte(notFoundXML))
+		respondXML(c, notFoundXML)
 		return
 	}
 	var acc model.SipAccount
 	err := h.ST.DB.Where("extension = ? AND enabled = ?", user, true).First(&acc).Error
 	if err != nil {
-		c.Data(http.StatusOK, "text/xml; charset=utf-8", []byte(notFoundXML))
+		respondXML(c, notFoundXML)
 		return
 	}
-	xmlStr := fmt.Sprintf(userXMLTpl, domain, acc.Extension, directoryHA1(acc.Extension, domain, acc.SipPassword))
-	c.Data(http.StatusOK, "text/xml; charset=utf-8", []byte(xmlStr))
+	// ext 为分配器生成的纯数字；domain 客户端可控故转义；
+	// a1-hash 按原始三元组重算，转义不影响认证数学。
+	xmlStr := fmt.Sprintf(userXMLTpl,
+		xmlEsc(domain),
+		xmlEsc(acc.Extension),
+		directoryHA1(acc.Extension, domain, acc.SipPassword),
+	)
+	respondXML(c, xmlStr)
 }
