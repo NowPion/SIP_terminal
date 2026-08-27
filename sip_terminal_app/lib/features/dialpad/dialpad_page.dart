@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/mic_permission.dart';
 import '../../core/theme.dart';
 import '../../sip/call_engine.dart';
 import '../../sip/sip_providers.dart';
+import '../shared/reg_badge.dart';
 
 /// 拨号盘输入状态：挂在独立 provider，切 tab（IndexedStack 保活）不丢失。
 final dialpadNumberProvider = StateProvider<String>((_) => '');
@@ -45,6 +47,9 @@ class DialpadPage extends ConsumerWidget {
   }
 
   Future<void> _call(BuildContext context, WidgetRef ref, String number) async {
+    // 麦克风运行时权限：未授权则申请/引导，拒绝即不拨打
+    if (!await ensureMicPermission(context)) return;
+    if (!context.mounted) return;
     await ref.read(sipServiceProvider).dial(number);
     if (!context.mounted) return;
     // 测试环境（无 GoRouter）下不导航；正式路由 /call 始终可推。
@@ -71,7 +76,7 @@ class DialpadPage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
                 alignment: Alignment.centerRight,
-                child: _RegBadge(registered: registered),
+                child: RegBadge(registered: registered),
               ),
             ),
             Expanded(
@@ -150,41 +155,6 @@ class DialpadPage extends ConsumerWidget {
                     ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RegBadge extends StatelessWidget {
-  const _RegBadge({required this.registered});
-
-  final bool registered;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final label = registered ? '已注册' : '未连接';
-    return Semantics(
-      label: 'SIP 注册状态：$label',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: ShapeDecoration(
-          color: scheme.surfaceContainerHighest,
-          shape: const StadiumBorder(),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, size: 8, color: scheme.success),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: scheme.onSurface),
             ),
           ],
         ),

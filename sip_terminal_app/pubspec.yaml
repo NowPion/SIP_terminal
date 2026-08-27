@@ -45,6 +45,7 @@ dependencies:
   flutter_background_service: ^5.1.0
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.6
+  permission_handler: ^13.0.1
 
 dev_dependencies:
   flutter_test:

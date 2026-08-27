@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:sip_terminal/core/mic_permission.dart';
 import 'package:sip_terminal/core/theme.dart';
 import 'package:sip_terminal/data/app_db.dart';
 import 'package:sip_terminal/data/providers.dart';
@@ -142,6 +143,8 @@ void main() {
   setUp(() {
     db = AppDb.forTest(NativeDatabase.memory());
     engine = FakeCallEngine();
+    // 接听走真实 handler 会命中缺失的插件；测试固定为已授权
+    MicPermission.handler = () async => MicPermissionResult.granted;
   });
   tearDown(() => db.close());
 

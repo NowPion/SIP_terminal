@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sip_terminal/core/mic_permission.dart';
 import 'package:sip_terminal/core/theme.dart';
 import 'package:sip_terminal/features/dialpad/dialpad_page.dart';
 import 'package:sip_terminal/sip/call_engine.dart';
@@ -71,6 +72,11 @@ Future<_RecordingSipService> _pumpDialpad(
 }
 
 void main() {
+  setUp(() {
+    // 走真实 handler 会命中缺失的插件；测试固定为已授权
+    MicPermission.handler = () async => MicPermissionResult.granted;
+  });
+
   testWidgets('按键输入 1-2-3 显示 123，退格为 12，长按清空', (tester) async {
     await _pumpDialpad(tester);
     expect(find.text('输入分机号'), findsOneWidget);

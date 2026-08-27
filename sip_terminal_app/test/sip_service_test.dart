@@ -5,6 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sip_terminal/core/api_client.dart';
+import 'package:sip_terminal/core/background_service.dart';
+import 'package:sip_terminal/core/notification_service.dart';
 import 'package:sip_terminal/core/session_store.dart';
 import 'package:sip_terminal/features/auth/auth_api.dart';
 import 'package:sip_terminal/features/auth/auth_controller.dart';
@@ -264,6 +266,12 @@ void main() {
         callEngineProvider.overrideWithValue(engine),
         sessionStoreProvider.overrideWithValue(SessionStore()),
         authApiProvider.overrideWithValue(FakeAuthApi()),
+        notificationServiceProvider.overrideWithValue(
+          FakeNotificationService(),
+        ),
+        backgroundServiceProvider.overrideWithValue(
+          FakeBackgroundServiceManager(),
+        ),
       ],
     );
     addTearDown(container.dispose);

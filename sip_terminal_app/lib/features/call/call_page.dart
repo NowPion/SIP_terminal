@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/mic_permission.dart';
 import '../../core/theme.dart';
 import '../../sip/sip_providers.dart';
 import '../../sip/sip_service.dart';
 
 /// 全屏通话页：UI 完全由 sipStateProvider 驱动（number 参数仅作展示兜底）。
-/// 麦克风运行时权限申请延后到 F8（首次拨打/接听时统一处理）。
+/// 接听前统一申请麦克风运行时权限。
 class CallPage extends ConsumerStatefulWidget {
   const CallPage({super.key, this.number});
 
@@ -25,6 +26,12 @@ class _CallPageState extends ConsumerState<CallPage> {
   Timer? _popTimer;
 
   SipService get _service => ref.read(sipServiceProvider);
+
+  Future<void> _answer() async {
+    if (!await ensureMicPermission(context)) return;
+    if (!mounted) return;
+    await _service.answer();
+  }
 
   @override
   void initState() {
@@ -143,7 +150,7 @@ class _CallPageState extends ConsumerState<CallPage> {
                         color: scheme.success,
                         icon: Icons.call,
                         semanticLabel: '接听',
-                        onTap: _service.answer,
+                        onTap: _answer,
                       ),
                     if (call.phase == SipUiPhase.active) ...[
                       const _MuteButton(),

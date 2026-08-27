@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/accounts/accounts_page.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_page.dart';
 import '../features/call/call_page.dart';
@@ -55,8 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/accounts',
-                builder: (_, _) =>
-                    const Scaffold(body: Center(child: Text('Accounts 占位'))),
+                builder: (_, _) => const AccountsPage(),
               ),
             ],
           ),
