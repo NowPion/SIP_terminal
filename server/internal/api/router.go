@@ -19,6 +19,7 @@ func New(st *store.Store, jwtSecret string) *gin.Engine {
 	{
 		api.POST("/auth/register", h.Register)
 		api.POST("/auth/login", h.Login)
+		api.POST("/fsw/directory", h.FSWDirectory) // FreeSWITCH 内网回调，不走JWT；仅限内网暴露
 		authed := api.Group("", auth.Require(jwtSecret))
 		authed.GET("/me/sip-account", h.MeSipAccount)
 		authed.POST("/calls", h.CreateCall)
