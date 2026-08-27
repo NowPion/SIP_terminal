@@ -155,9 +155,10 @@ func TestCreateAndListCallsCursorPagination(t *testing.T) {
 	}
 	newestOfP2 := page2.Items[0]
 	oldestOfP1 := pageType.Items[len(pageType.Items)-1]
-	if !newestOfP2.StartedAt.Before(oldestOfP1.StartedAt) &&
-		newestOfP2.StartedAt.Equal(oldestOfP1.StartedAt) && newestOfP2.ID >= oldestOfP1.ID {
-		t.Fatal("page2 overlaps page1 boundary")
+	inOrder := newestOfP2.StartedAt.Before(oldestOfP1.StartedAt) ||
+		(newestOfP2.StartedAt.Equal(oldestOfP1.StartedAt) && newestOfP2.ID < oldestOfP1.ID)
+	if !inOrder {
+		t.Fatal("page2 overlaps or exceeds page1 boundary")
 	}
 }
 
@@ -180,5 +181,46 @@ func TestDeleteOnlyOwnRecord(t *testing.T) {
 	}
 	if c := deleteWithToken(r, "/api/v1/calls/1", tokenDave).Code; c != http.StatusOK {
 		t.Fatalf("own delete want 200 got %d", c)
+	}
+}
+
+func TestListCallsRejectsMalformedCursor(t *testing.T) {
+	r, _ := newTestRouter(t)
+	token := mustRegister(t, r, "cur01")
+	rec := getWithToken(r, "/api/v1/calls?before_time=notatime&before_id=1", token)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 got %d", rec.Code)
+	}
+}
+
+func TestListCallsDuplicateTimestampsAcrossPages(t *testing.T) {
+	r, st := newTestRouter(t)
+	token := mustRegister(t, r, "dup01")
+	same := time.Now().UTC().Truncate(time.Millisecond)
+	for i := 0; i < 3; i++ { // same millisecond, ids 1..3
+		st.DB.Create(&model.CallRecord{OwnerUserID: 1, Direction: "out", Disposition: "answered",
+			RemoteNumber: fmt.Sprintf("d%d", i), StartedAt: same})
+	}
+	p1 := getWithToken(r, "/api/v1/calls?limit=2", token)
+	var page1 struct {
+		Items  []model.CallRecord `json:"items"`
+		Cursor *struct {
+			Time int64 `json:"time"`
+			ID   int64 `json:"id"`
+		} `json:"next_cursor"`
+	}
+	json.Unmarshal(p1.Body.Bytes(), &page1)
+	if len(page1.Items) != 2 || page1.Cursor == nil {
+		t.Fatalf("page1 want 2+cursor got %d %+v", len(page1.Items), page1.Cursor)
+	}
+	url2 := fmt.Sprintf("/api/v1/calls?limit=2&before_time=%s&before_id=%d",
+		time.UnixMilli(page1.Cursor.Time).UTC().Format(time.RFC3339Nano), page1.Cursor.ID)
+	p2 := getWithToken(r, url2, token)
+	var page2 struct {
+		Items []model.CallRecord `json:"items"`
+	}
+	json.Unmarshal(p2.Body.Bytes(), &page2)
+	if len(page2.Items) != 1 || page2.Items[0].ID >= page1.Items[1].ID {
+		t.Fatalf("tie-break across pages wrong: %d rows", len(page2.Items))
 	}
 }

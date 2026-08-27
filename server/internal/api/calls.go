@@ -42,6 +42,8 @@ func (h *Handler) CreateCall(c *gin.Context) {
 	if req.StartedAt.IsZero() {
 		req.StartedAt = time.Now().UTC()
 	}
+	// 统一截断到毫秒：与 SQLite datetime 存储及游标 UnixMilli 对齐，避免亚毫秒残留破坏 before_id 边界。
+	req.StartedAt = req.StartedAt.Truncate(time.Millisecond)
 	rec := model.CallRecord{
 		OwnerUserID:  auth.UID(c),
 		Direction:    req.Direction,
@@ -66,14 +68,16 @@ func (h *Handler) ListCalls(c *gin.Context) {
 	}
 	db := h.ST.DB.Where("owner_user_id = ?", auth.UID(c))
 	bt, bid := c.Query("before_time"), c.Query("before_id")
-	if bt != "" && bid != "" {
+	if bt != "" || bid != "" {
 		tm, err1 := time.Parse(time.RFC3339Nano, bt)
 		id, err2 := strconv.ParseInt(bid, 10, 64)
-		if err1 == nil && err2 == nil {
-			db = db.Where("(started_at < ? OR (started_at = ? AND id < ?))", tm.UTC(), tm.UTC(), id)
+		if err1 != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "非法游标参数"})
+			return
 		}
+		db = db.Where("(started_at < ? OR (started_at = ? AND id < ?))", tm.UTC(), tm.UTC(), id)
 	}
-	var items []model.CallRecord
+	var items = make([]model.CallRecord, 0, limit)
 	if err := db.Order("started_at DESC, id DESC").Limit(limit).Find(&items).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "query"})
 		return
