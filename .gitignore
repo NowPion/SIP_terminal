@@ -1,0 +1,5 @@
+server/bin/
+*.exe
+.env.local
+deploy/freeswitch/conf/etc/log/
+deploy/freeswitch/data/
