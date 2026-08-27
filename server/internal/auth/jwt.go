@@ -15,7 +15,19 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+const (
+	ctxUID   = "uid"
+	ctxUname = "uname"
+)
+
+// UID / Uname 从 Require 注入的上下文取值。
+func UID(c *gin.Context) int64    { return c.GetInt64(ctxUID) }
+func Uname(c *gin.Context) string { return c.GetString(ctxUname) }
+
 func MakeToken(secret string, userID int64, username string, ttl time.Duration) (string, error) {
+	if secret == "" {
+		return "", jwt.ErrInvalidKey
+	}
 	c := Claims{
 		UserID: userID, Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -28,9 +40,12 @@ func MakeToken(secret string, userID int64, username string, ttl time.Duration) 
 }
 
 func ParseToken(secret, raw string) (int64, string, error) {
+	if secret == "" {
+		return 0, "", jwt.ErrInvalidKey
+	}
 	var c Claims
 	_, err := jwt.ParseWithClaims(raw, &c, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, jwt.ErrSignatureInvalid
 		}
 		return []byte(secret), nil
@@ -50,8 +65,8 @@ func Require(secret string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
-		c.Set("uid", uid)
-		c.Set("uname", uname)
+		c.Set(ctxUID, uid)
+		c.Set(ctxUname, uname)
 		c.Next()
 	}
 }

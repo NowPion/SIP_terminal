@@ -21,11 +21,25 @@ func TestTokenRoundTrip(t *testing.T) {
 	if _, _, err := ParseToken("wrong-key", token); err == nil {
 		t.Fatal("wrong secret should fail")
 	}
+	if _, _, err := ParseToken("", token); err == nil {
+		t.Fatal("empty secret must be rejected")
+	}
+	if _, err := MakeToken("", 1, "x", time.Minute); err == nil {
+		t.Fatal("MakeToken empty secret must fail")
+	}
+
+	expired, _ := MakeToken("s3cret", 42, "alice", -time.Minute)
+	if _, _, err := ParseToken("s3cret", expired); err == nil {
+		t.Fatal("expired should fail")
+	}
 }
 
 func TestRequireMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	token, _ := MakeToken("s3cret", 7, "bob", time.Minute)
+	token, err := MakeToken("s3cret", 7, "bob", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	router := gin.New()
 	router.GET("/me", Require("s3cret"), func(c *gin.Context) {
