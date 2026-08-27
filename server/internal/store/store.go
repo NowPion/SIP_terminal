@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"strconv"
+	"sync"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
@@ -13,7 +15,11 @@ import (
 	"github.com/nie/sip-terminal/server/internal/model"
 )
 
-type Store struct{ DB *gorm.DB }
+type Store struct {
+	DB *gorm.DB
+
+	mu sync.Mutex
+}
 
 // Open 连接生产 MySQL。
 func Open(dsn string) (*Store, error) {
@@ -47,7 +53,11 @@ func (s *Store) Close() error {
 }
 
 // AllocateExtension 从1001起找最小未占用分机号（数据量小，内存计算跨方言可移植）。
+// 加锁串行化“查-算”窗口，避免并发调用返回同一个分机号。
 func (s *Store) AllocateExtension(ctx context.Context) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var exts []string
 	if err := s.DB.WithContext(ctx).Model(&model.SipAccount{}).Pluck("extension", &exts).Error; err != nil {
 		return "", err
@@ -66,6 +76,9 @@ func (s *Store) AllocateExtension(ctx context.Context) (string, error) {
 
 // RandomSecret 生成长度 n 的URL安全随机字符串。
 func RandomSecret(n int) (string, error) {
+	if n <= 0 {
+		return "", errors.New("RandomSecret: n must be positive")
+	}
 	b := make([]byte, n*2)
 	if _, err := rand.Read(b); err != nil {
 		return "", err

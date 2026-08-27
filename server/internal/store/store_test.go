@@ -30,10 +30,41 @@ func TestAllocateExtensionFrom1001AndSkipsUsed(t *testing.T) {
 		t.Fatalf("want 1001 got %s", first)
 	}
 
-	s.DB.Create(&model.SipAccount{Extension: "1001", SipPassword: "x", Enabled: true})
-	second, _ := s.AllocateExtension(ctx)
+	if err := s.DB.Create(&model.SipAccount{Extension: "1001", SipPassword: "x", Enabled: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.AllocateExtension(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if second != "1002" {
 		t.Fatalf("want 1002 got %s", second)
+	}
+}
+
+func TestAllocateExtensionFillsGapAfterDelete(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.DB.Create(&model.SipAccount{Extension: "1001", SipPassword: "x", Enabled: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.Create(&model.SipAccount{Extension: "1002", SipPassword: "x", Enabled: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.AllocateExtension(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "1003" {
+		t.Fatalf("before delete want 1003 got %s", got)
+	}
+	s.DB.Where("extension = ?", "1001").Delete(&model.SipAccount{})
+	got2, err := s.AllocateExtension(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got2 != "1001" {
+		t.Fatalf("after delete want 1001 got %s", got2)
 	}
 }
 
