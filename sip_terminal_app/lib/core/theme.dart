@@ -14,6 +14,7 @@ abstract final class DsColors {
   static const muted = Color(0xFFE8ECF0);
   static const border = Color(0xFFE5E5E5);
   static const destructive = Color(0xFFDC2626);
+  static const success = Color(0xFF16A34A);
   static const onSurface = Color(0xFF171717);
   static const onSurfaceMuted = Color(0xFF525252);
 
@@ -26,6 +27,7 @@ abstract final class DsColors {
   static const dMuted = Color(0xFF262626);
   static const dBorder = Color(0xFF333333);
   static const dDestructive = Color(0xFFF87171);
+  static const dSuccess = Color(0xFF4ADE80);
   static const dOnSurface = Color(0xFFFAFAFA);
   static const dOnSurfaceMuted = Color(0xFFA3A3A3);
 }
@@ -75,7 +77,10 @@ ThemeData _theme(ColorScheme s) {
       backgroundColor: s.surface,
       indicatorColor: s.surfaceContainerHighest,
       labelTextStyle: WidgetStatePropertyAll(
-        inter.labelSmall!.copyWith(fontWeight: FontWeight.w500, color: s.onSurface),
+        inter.labelSmall!.copyWith(
+          fontWeight: FontWeight.w500,
+          color: s.onSurface,
+        ),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -97,8 +102,12 @@ ThemeData _theme(ColorScheme s) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: s.brightness == Brightness.light ? DsColors.muted : DsColors.dMuted,
-      hintStyle: inter.bodyMedium?.copyWith(color: s.onSurface.withValues(alpha: .45)),
+      fillColor: s.brightness == Brightness.light
+          ? DsColors.muted
+          : DsColors.dMuted,
+      hintStyle: inter.bodyMedium?.copyWith(
+        color: s.onSurface.withValues(alpha: .45),
+      ),
       border: OutlineInputBorder(
         borderRadius: radius,
         borderSide: BorderSide(color: s.outline),
@@ -112,4 +121,15 @@ ThemeData _theme(ColorScheme s) {
     dividerTheme: DividerThemeData(color: s.outline, thickness: 1),
     splashFactory: InkSparkle.splashFactory,
   );
+}
+
+/// 语义色/辅助文本色挂在 scheme 上（不属于 Material scheme 的 token），
+/// 页面一律 `scheme.success` / `scheme.onSurfaceMuted` 取色，禁止直接 import DsColors。
+extension DsSchemeX on ColorScheme {
+  Color get success =>
+      brightness == Brightness.light ? DsColors.success : DsColors.dSuccess;
+
+  Color get onSurfaceMuted => brightness == Brightness.light
+      ? DsColors.onSurfaceMuted
+      : DsColors.dOnSurfaceMuted;
 }
