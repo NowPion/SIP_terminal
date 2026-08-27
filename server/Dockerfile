@@ -1,5 +1,6 @@
 FROM golang:1.23-alpine AS build
 WORKDIR /src
+ENV GIN_MODE=release
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .

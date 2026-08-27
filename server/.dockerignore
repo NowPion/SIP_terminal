@@ -1,0 +1,4 @@
+.git
+cmd/server/smoke*
+**/*_test.go
+smoke-server.log
