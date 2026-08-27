@@ -6,6 +6,7 @@ import '../features/auth/auth_controller.dart';
 import '../features/auth/login_page.dart';
 import '../features/call/call_page.dart';
 import '../features/dialpad/dialpad_page.dart';
+import '../features/history/history_page.dart';
 import '../features/shell/home_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -42,11 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/history',
-                builder: (_, _) =>
-                    const Scaffold(body: Center(child: Text('History 占位'))),
-              ),
+              GoRoute(path: '/history', builder: (_, _) => const HistoryPage()),
             ],
           ),
           StatefulShellBranch(
