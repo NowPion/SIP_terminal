@@ -224,3 +224,26 @@ func TestListCallsDuplicateTimestampsAcrossPages(t *testing.T) {
 		t.Fatalf("tie-break across pages wrong: %d rows", len(page2.Items))
 	}
 }
+
+func TestListCallsLimitClamped(t *testing.T) {
+	r, st := newTestRouter(t)
+	token := mustRegister(t, r, "lmt01")
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	for i := 0; i < 25; i++ {
+		st.DB.Create(&model.CallRecord{OwnerUserID: 1, Direction: "out", Disposition: "answered",
+			RemoteNumber: fmt.Sprintf("l%d", i), StartedAt: now.Add(-time.Duration(i) * time.Minute)})
+	}
+	// 非法字符串 → 默认20
+	if rec := getWithToken(r, "/api/v1/calls?limit=abc", token); rec.Code != http.StatusOK {
+		t.Fatalf("limit=abc want 200 got %d", rec.Code)
+	}
+	// 超上限 51 → 钳制50；数据集仅25条，故拉回全部25行
+	rec := getWithToken(r, "/api/v1/calls?limit=51", token)
+	var page struct {
+		Items []model.CallRecord `json:"items"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &page)
+	if len(page.Items) != 25 { // 只有25条数据
+		t.Fatalf("want all 25 rows got %d", len(page.Items))
+	}
+}

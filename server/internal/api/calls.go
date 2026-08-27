@@ -62,8 +62,16 @@ func (h *Handler) CreateCall(c *gin.Context) {
 func (h *Handler) ListCalls(c *gin.Context) {
 	limit := 20
 	if q := c.Query("limit"); q != "" {
-		if n, err := strconv.Atoi(q); err == nil && n > 0 && n <= 50 {
-			limit = n
+		if n, err := strconv.Atoi(q); err == nil {
+			// 钳制到 [1,50]：超限拉满 50 而非回退默认，非法字符串才回落默认 20。
+			switch {
+			case n < 1:
+				limit = 1
+			case n > 50:
+				limit = 50
+			default:
+				limit = n
+			}
 		}
 	}
 	db := h.ST.DB.Where("owner_user_id = ?", auth.UID(c))
