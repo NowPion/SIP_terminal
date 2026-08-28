@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- WebRTC 的 NetworkMonitor 在建立 PeerConnection 时调用
+         ConnectivityManager.getActiveNetworkInfo；缺此权限会抛 SecurityException，
+         经 jni_zero 异常处理器变成 RTC_CHECK 致命中止（进程 SIGABRT）。 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -9,7 +13,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
-        android:label="sip_terminal"
+        android:label="小栋通信"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

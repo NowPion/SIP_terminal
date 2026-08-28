@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_client.dart';
+import '../../core/api_config.dart';
 import 'auth_controller.dart';
 
 /// 登录/注册 —— Minimal 单列，主 CTA 全宽；错误就地展示。
@@ -13,14 +15,27 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 2, vsync: this);
+  late final TabController _tab = TabController(length: 2, vsync: this)
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
   final _formKey = GlobalKey<FormState>();
-  final _host = TextEditingController(text: '10.0.2.2');
+  final _host = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
   bool _submitting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 回填上次用过的服务器地址：真机换网/登出重登时不用每次重新手输
+    _host.text = ApiConfig.defaultHost;
+    ref.read(sessionStoreProvider).host().then((h) {
+      if (mounted && h.isNotEmpty) _host.text = h;
+    });
+  }
 
   @override
   void dispose() {

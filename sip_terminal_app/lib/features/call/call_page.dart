@@ -20,10 +20,17 @@ class CallPage extends ConsumerStatefulWidget {
   ConsumerState<CallPage> createState() => _CallPageState();
 }
 
-class _CallPageState extends ConsumerState<CallPage> {
+class _CallPageState extends ConsumerState<CallPage>
+    with SingleTickerProviderStateMixin {
   static const _autoPopAfter = Duration(seconds: 2);
   Timer? _ticker;
   Timer? _popTimer;
+
+  /// 振铃期间头像光环的呼吸动画
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
 
   SipService get _service => ref.read(sipServiceProvider);
 
@@ -48,6 +55,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   void dispose() {
     _ticker?.cancel();
     _popTimer?.cancel();
+    _pulse.dispose();
     super.dispose();
   }
 
@@ -60,6 +68,17 @@ class _CallPageState extends ConsumerState<CallPage> {
     } else if (!need && _ticker != null) {
       _ticker!.cancel();
       _ticker = null;
+    }
+  }
+
+  void _ensurePulse(SipUiState call) {
+    final need =
+        call.phase == SipUiPhase.incoming || call.phase == SipUiPhase.outgoing;
+    if (need && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!need && _pulse.isAnimating) {
+      _pulse.stop();
+      _pulse.value = 0;
     }
   }
 
@@ -81,10 +100,11 @@ class _CallPageState extends ConsumerState<CallPage> {
     return '${two(d.inMinutes)}:${two(d.inSeconds % 60)}';
   }
 
-  String _statusText(SipUiState call, String number) => switch (call.phase) {
+  /// 号码已在上方大字展示，状态行不再重复号码。
+  String _statusText(SipUiState call) => switch (call.phase) {
     SipUiPhase.idle => '',
     SipUiPhase.outgoing => '正在呼叫…',
-    SipUiPhase.incoming => '来自 $number',
+    SipUiPhase.incoming => '来电',
     SipUiPhase.active => _timerText(call),
     SipUiPhase.ended => call.message ?? '通话已结束',
   };
@@ -97,77 +117,81 @@ class _CallPageState extends ConsumerState<CallPage> {
         ? call.number!
         : (widget.number ?? '');
     _ensureTicker(call);
+    _ensurePulse(call);
     ref.listen(sipStateProvider, (_, next) {
       if (next.valueOrNull?.call.phase == SipUiPhase.ended) {
         _scheduleAutoPop();
       }
     });
 
-    final scheme = Theme.of(context).colorScheme;
-    final ringingOrActive =
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final live =
         call.phase == SipUiPhase.active ||
         call.phase == SipUiPhase.incoming ||
         call.phase == SipUiPhase.outgoing;
 
     return PopScope(
       // 振铃/通话中拦截系统返回，防止误挂断；结束后放行（2s 自动返回）
-      canPop: !ringingOrActive,
+      canPop: !live,
       child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              const Spacer(),
-              _Avatar(number: number),
-              const SizedBox(height: 24),
-              Text(
-                number.isEmpty ? '未知号码' : number,
-                key: const Key('call-number'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+        // SizedBox.expand：DecoratedBox 会收缩到 child 尺寸，不撑满则渐变只画半屏
+        body: SizedBox.expand(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  scheme.surfaceContainerHighest.withValues(alpha: .7),
+                  scheme.surface,
+                  scheme.surface,
+                ],
+                stops: const [0, .5, 1],
               ),
-              const SizedBox(height: 8),
-              Text(
-                _statusText(call, number),
-                key: const Key('call-status'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceMuted,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 48),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (call.phase == SipUiPhase.incoming)
-                      _CircleAction(
-                        key: const Key('call-answer'),
-                        color: scheme.success,
-                        icon: Icons.call,
-                        semanticLabel: '接听',
-                        onTap: _answer,
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  _Avatar(number: number, pulse: _pulse),
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      number.isEmpty ? '未知号码' : number,
+                      key: const Key('call-number'),
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                    if (call.phase == SipUiPhase.active) ...[
-                      const _MuteButton(),
-                      const SizedBox(width: 24),
-                    ],
-                    if (ringingOrActive)
-                      _CircleAction(
-                        key: const Key('call-hangup'),
-                        color: scheme.error,
-                        icon: Icons.call_end,
-                        semanticLabel: '挂断',
-                        onTap: _service.hangup,
-                      ),
-                  ],
-                ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _statusText(call),
+                    key: const Key('call-status'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.onSurfaceMuted,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: call.phase == SipUiPhase.active ? 1.2 : 0,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const Spacer(flex: 3),
+                  _Actions(
+                    phase: call.phase,
+                    onAnswer: _answer,
+                    onHangup: _service.hangup,
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -175,90 +199,246 @@ class _CallPageState extends ConsumerState<CallPage> {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.number});
+/// 底部动作区：来电=拒接/接听，通话中=静音/挂断，呼出=挂断。
+class _Actions extends StatelessWidget {
+  const _Actions({
+    required this.phase,
+    required this.onAnswer,
+    required this.onHangup,
+  });
 
-  final String number;
+  final SipUiPhase phase;
+  final Future<void> Function() onAnswer;
+  final Future<void> Function() onHangup;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: ShapeDecoration(
-        color: scheme.surfaceContainerHighest,
-        shape: const CircleBorder(),
-      ),
-      child: Center(
-        child: number.isEmpty
-            ? Icon(Icons.person, size: 40, color: scheme.onSurfaceMuted)
-            : Text(
-                number[0],
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: scheme.onSurface,
-                ),
-              ),
-      ),
+
+    final hangup = _CircleAction(
+      key: const Key('call-hangup'),
+      color: scheme.error,
+      icon: Icons.call_end_rounded,
+      label: phase == SipUiPhase.incoming ? '拒接' : '挂断',
+      onTap: onHangup,
     );
+
+    return switch (phase) {
+      // 拒接在左、接听在右，符合安卓来电习惯
+      SipUiPhase.incoming => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 56),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            hangup,
+            _CircleAction(
+              key: const Key('call-answer'),
+              color: scheme.success,
+              icon: Icons.call_rounded,
+              label: '接听',
+              onTap: onAnswer,
+            ),
+          ],
+        ),
+      ),
+      SipUiPhase.active => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [const _MuteButton(), const SizedBox(width: 48), hangup],
+      ),
+      SipUiPhase.outgoing => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [hangup],
+      ),
+      SipUiPhase.idle || SipUiPhase.ended => const SizedBox.shrink(),
+    };
   }
 }
 
+/// 圆形动作按钮 + 下方文字标签（图标语义靠标签，不再依赖 tooltip）。
 class _CircleAction extends StatelessWidget {
   const _CircleAction({
     super.key,
     required this.color,
     required this.icon,
-    required this.semanticLabel,
+    required this.label,
     required this.onTap,
   });
 
   final Color color;
   final IconData icon;
-  final String semanticLabel;
+  final String label;
   final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: semanticLabel,
-      button: true,
-      child: SizedBox(
-        width: 72,
-        height: 72,
-        child: Material(
-          color: color,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Center(child: Icon(icon, size: 32, color: Colors.white)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          label: label,
+          button: true,
+          child: Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: .32),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Material(
+              color: color,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: Center(child: Icon(icon, size: 34, color: Colors.white)),
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 10),
+        _ActionLabel(label),
+      ],
     );
   }
 }
 
+/// 头像：振铃时外圈光环呼吸；通话中静态。
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.number, required this.pulse});
+
+  final String number;
+  final Animation<double> pulse;
+
+  static const _size = 116.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: pulse,
+      builder: (context, _) {
+        final t = pulse.value;
+        return SizedBox(
+          width: _size * 1.9,
+          height: _size * 1.9,
+          child: Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                for (final ring in const [1.55, 1.28])
+                  Container(
+                    width: _size * (ring + t * .12),
+                    height: _size * (ring + t * .12),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: scheme.onSurface.withValues(
+                        alpha: .05 * (1 - t * .5),
+                      ),
+                    ),
+                  ),
+                Container(
+                  width: _size,
+                  height: _size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.surfaceContainerHighest,
+                    border: Border.all(
+                      color: scheme.onSurface.withValues(alpha: .06),
+                    ),
+                  ),
+                  child: Center(
+                    child: number.isEmpty
+                        ? Icon(
+                            Icons.person_outline,
+                            size: 48,
+                            color: scheme.onSurfaceMuted,
+                          )
+                        : Text(
+                            number.characters.first,
+                            style: Theme.of(context).textTheme.displaySmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: scheme.onSurface,
+                                ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ActionLabel extends StatelessWidget {
+  const _ActionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceMuted,
+      fontWeight: FontWeight.w500,
+    ),
+  );
+}
+
+/// 静音：与动作按钮同尺寸，用填充/描边区分“非终止操作”与当前开关态。
 class _MuteButton extends ConsumerWidget {
   const _MuteButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final call = ref.watch(sipStateProvider).valueOrNull?.call;
-    final muted = call?.muted ?? false;
+    final scheme = Theme.of(context).colorScheme;
+    final muted = ref.watch(sipStateProvider).valueOrNull?.call.muted ?? false;
     final label = muted ? '取消静音' : '静音';
-    return Semantics(
-      label: label,
-      button: true,
-      child: IconButton(
-        key: const Key('call-mute'),
-        tooltip: label,
-        iconSize: 28,
-        onPressed: () => ref.read(sipServiceProvider).setMuted(!muted),
-        icon: Icon(muted ? Icons.mic_off : Icons.mic),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          label: label,
+          button: true,
+          toggled: muted,
+          child: SizedBox(
+            width: 76,
+            height: 76,
+            child: Material(
+              color: muted
+                  ? scheme.onSurface
+                  : scheme.surfaceContainerHighest.withValues(alpha: .9),
+              shape: CircleBorder(
+                side: BorderSide(
+                  color: scheme.onSurface.withValues(alpha: muted ? 0 : .1),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const Key('call-mute'),
+                onTap: () => ref.read(sipServiceProvider).setMuted(!muted),
+                child: Center(
+                  child: Icon(
+                    muted ? Icons.mic_off_rounded : Icons.mic_none_rounded,
+                    size: 32,
+                    color: muted ? scheme.surface : scheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _ActionLabel(label),
+      ],
     );
   }
 }

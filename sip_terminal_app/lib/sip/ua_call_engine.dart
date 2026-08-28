@@ -57,10 +57,17 @@ class UaCallEngine with SipUaHelperListener implements CallEngine {
 
   @override
   Future<void> dial(String number) async {
-    final ua = _ua;
-    final domain = _domain;
-    if (ua == null || domain == null) return;
-    await ua.call('sip:$number@$domain', voiceOnly: true);
+    try {
+      final ua = _ua;
+      final domain = _domain;
+      if (ua == null || domain == null) return;
+      await ua.call('sip:$number@$domain', voiceOnly: true);
+    } catch (e) {
+      _events.add(const CallEvent(
+        dir: SipCallDir.outgoing,
+        kind: SipCallKind.failed,
+      ));
+    }
   }
 
   @override

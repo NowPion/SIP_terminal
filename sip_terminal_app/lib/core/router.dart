@@ -13,6 +13,8 @@ import '../features/shell/home_shell.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
   ref.listen(authControllerProvider, (_, _) => refresh.value++);
+  // auth 可能在本 provider 构建前就已完成（静默登录快于首帧），补一次刷新
+  if (ref.read(authControllerProvider).hasValue) refresh.value++;
   ref.onDispose(refresh.dispose);
 
   GoRouter build() => GoRouter(
@@ -28,7 +30,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthPhase.needLogin:
           return atLogin ? null : '/login';
         case AuthPhase.ready:
-          return atLogin ? '/dialpad' : null;
+          return (atLogin || state.matchedLocation == '/boot') ? '/dialpad' : null;
       }
     },
     routes: [

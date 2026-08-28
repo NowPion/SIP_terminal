@@ -176,7 +176,8 @@ void main() {
     await tester.tap(find.byKey(const Key('call-mute')));
     await _settle(tester);
     expect(engine.lastMuted, isTrue);
-    expect(find.byTooltip('取消静音'), findsOneWidget);
+    // 静音态改由按钮下方的可见标签表达（不再依赖 tooltip）
+    expect(find.text('取消静音'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('call-hangup')));
     await _settle(tester);
@@ -202,7 +203,12 @@ void main() {
       ),
     );
     await _settle(tester);
-    expect(find.text('来自 1003'), findsOneWidget);
+    // 号码只在大字区展示一次，状态行不再重复号码
+    expect(
+      tester.widget<Text>(find.byKey(const Key('call-number'))).data,
+      '1003',
+    );
+    expect(find.text('来电'), findsOneWidget);
     expect(find.byKey(const Key('call-answer')), findsOneWidget);
     expect(find.byKey(const Key('call-hangup')), findsOneWidget);
 

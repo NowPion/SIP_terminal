@@ -15,7 +15,7 @@ class AuthController extends AsyncNotifier<AuthPhase> {
     final token = await _session.token();
     if (token == null) return AuthPhase.needLogin;
     try {
-      final acc = await _api.me();
+      final acc = await _api.me().timeout(const Duration(seconds: 4));
       await _session.setSipAccount(acc.extension, acc.password);
       return AuthPhase.ready;
     } on ApiException catch (e) {
@@ -23,7 +23,10 @@ class AuthController extends AsyncNotifier<AuthPhase> {
         await _session.clear(); // 404=账号被删, 401=token 过期
         return AuthPhase.needLogin;
       }
-      // 网络类错误：保持 token，允许进入主界面离线浏览
+      final acc = await _session.sipAccount();
+      return acc != null ? AuthPhase.ready : AuthPhase.needLogin;
+    } catch (_) {
+      // 其它网络或超时异常：尝试使用本地缓存的 SIP 账号直接就绪
       final acc = await _session.sipAccount();
       return acc != null ? AuthPhase.ready : AuthPhase.needLogin;
     }

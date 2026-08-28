@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'sip/sip_providers.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ class _App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(sipBootstrapProvider); // 启动 SIP 引擎/通知/前台服务
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'SIP Terminal',
