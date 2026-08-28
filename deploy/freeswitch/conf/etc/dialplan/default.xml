@@ -263,7 +263,10 @@
 	 bridge (hangup_after_bridge=true)
     -->
     <extension name="Local_Extension">
-      <condition field="destination_number" expression="^(10[01][0-9])$">
+      <!-- vanilla 原本只匹配 1000-1019，分配器从 1001 递增、现已用到 1013，
+           再加几台设备就会出现“能注册但拨不通”。放宽到 1000-1099；
+           不动 11xx，避免遮蔽下面的 Local_Extension_Skinny。 -->
+      <condition field="destination_number" expression="^(10[0-9][0-9])$">
 	<action application="export" data="dialed_extension=$1"/>
 	<!-- bind_meta_app can have these args <key> [a|b|ab] [a|b|o|s] <app> -->
 	<action application="bind_meta_app" data="1 b s execute_extension::dx XML features"/>
@@ -276,7 +279,11 @@
 	<!-- <action application="set" data="sip_exclude_contact=${network_addr}"/> -->
 	<action application="set" data="hangup_after_bridge=true"/>
 	<!--<action application="set" data="continue_on_fail=NORMAL_TEMPORARY_FAILURE,USER_BUSY,NO_ANSWER,TIMEOUT,NO_ROUTE_DESTINATION"/> -->
-	<action application="set" data="continue_on_fail=true"/>
+	<!-- 本产品没有语音信箱功能。vanilla 默认 continue_on_fail=true，被叫拒接/忙/
+	     无应答时都会继续往下执行 answer + 语音信箱，FS 自己给主叫回 200 OK，
+	     主叫因此错误地进入「已接听」状态并开始计时，话单也被记成 answered。
+	     这里改为不继续，让真实的失败原因（拒接/忙/超时）原样回给主叫。 -->
+	<action application="set" data="continue_on_fail=false"/>
 	<action application="hash" data="insert/${domain_name}-call_return/${dialed_extension}/${caller_id_number}"/>
 	<action application="hash" data="insert/${domain_name}-last_dial_ext/${dialed_extension}/${uuid}"/>
 	<action application="set" data="called_party_callgroup=${user_data(${dialed_extension}@${domain_name} var callgroup)}"/>
@@ -285,9 +292,6 @@
 	<!--<action application="export" data="nolocal:rtp_secure_media=${user_data(${dialed_extension}@${domain_name} var rtp_secure_media)}"/>-->
 	<action application="hash" data="insert/${domain_name}-last_dial/${called_party_callgroup}/${uuid}"/>
 	<action application="bridge" data="user/${dialed_extension}@${domain_name}"/>
-	<action application="answer"/>
-	<action application="sleep" data="1000"/>
-	<action application="bridge" data="loopback/app=voicemail:default ${domain_name} ${dialed_extension}"/>
       </condition>
     </extension>
 

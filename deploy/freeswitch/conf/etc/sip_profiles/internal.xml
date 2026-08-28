@@ -99,6 +99,15 @@
     <param name="sip-ip" value="$${local_ip_v4}"/>
     <param name="hold-music" value="$${hold_music}"/>
     <param name="apply-nat-acl" value="nat.auto"/>
+    <!-- WebRTC ICE：未定义 candidate-acl 时 FS 回退到 wan.auto，会丢弃 RFC1918
+         私有地址的 candidate。安卓模拟器只有 10.0.2.x，且经 docker 网关
+         (172.20.0.1) 到达 FS 的 peer-reflexive 地址同样是私有段，两者都会被
+         丢掉，导致 ICE 找不到可用 pair 而在 15s 后失败。
+         允许私有段后再回落 wan.auto，兼容内网客户端与公网客户端。 -->
+    <param name="apply-candidate-acl" value="localnet.auto"/>
+    <param name="apply-candidate-acl" value="rfc1918.auto"/>
+    <param name="apply-candidate-acl" value="wan_v4.auto"/>
+    <param name="apply-candidate-acl" value="any_v4.auto"/>
 
 
     <!-- (default true) set to false if you do not wish to have called party info in 1XX responses -->
