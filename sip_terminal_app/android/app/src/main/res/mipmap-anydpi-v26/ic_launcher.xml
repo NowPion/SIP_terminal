@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 26+ 自适应图标：前景为鲸鱼与浪花，背景为与前景同色的白到浅蓝渐变，
+     launcher 做视差位移时露出的边缘与前景底色一致，不会出现色块。 -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

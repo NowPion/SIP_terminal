@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 发布签名：密钥库放在仓库外，凭证文件绝不入库
+android/key.properties
+*.jks
+*.p12
+*.keystore
