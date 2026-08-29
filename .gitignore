@@ -3,3 +3,10 @@ server/bin/
 .env.local
 deploy/freeswitch/conf/etc/log/
 deploy/freeswitch/data/
+
+e2e-*.png
+*.tar.gz
+ssh-mcp-audit.log
+tls_probe*.dart
+sip_terminal_app/android/build/
+sip_terminal_app/e2e-*
