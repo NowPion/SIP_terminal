@@ -21,6 +21,13 @@ class ApiClient {
           connectTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 12),
         )) {
+    dio.interceptors.add(LogInterceptor(
+      request: true,
+      requestBody: true,
+      responseHeader: false,
+      responseBody: true,
+      error: true,
+    ));
     dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) async {
       final t = await _session.token();
       if (t != null) o.headers['Authorization'] = 'Bearer $t';

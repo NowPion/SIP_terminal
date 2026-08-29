@@ -43,8 +43,7 @@ class UaCallEngine with SipUaHelperListener implements CallEngine {
     settings.webSocketSettings.allowBadCertificate = trustBadCert;
     final ua = SIPUAHelper();
     ua.addSipUaHelperListener(this);
-    await ua.start(settings);
-    ua.register();
+    await ua.start(settings); // settings.register=true：transport 连上后自动注册
     _ua = ua;
   }
 
@@ -93,6 +92,9 @@ class UaCallEngine with SipUaHelperListener implements CallEngine {
     }
   }
 
+  Timer? _retryTimer;
+  int _retryCount = 0;
+
   @override
   void transportStateChanged(TransportState state) {}
 
@@ -100,9 +102,12 @@ class UaCallEngine with SipUaHelperListener implements CallEngine {
   void registrationStateChanged(RegistrationState state) {
     switch (state.state) {
       case RegistrationStateEnum.REGISTERED:
+        _retryTimer?.cancel();
+        _retryCount = 0;
         _events.add(RegStateChanged(SipRegState.registered));
       case RegistrationStateEnum.REGISTRATION_FAILED:
         _events.add(RegStateChanged(SipRegState.failed));
+        _scheduleReRegister();
       case RegistrationStateEnum.UNREGISTERED:
         _events.add(RegStateChanged(SipRegState.unregistered));
       case RegistrationStateEnum.NONE:
@@ -110,6 +115,17 @@ class UaCallEngine with SipUaHelperListener implements CallEngine {
       case null:
         break;
     }
+  }
+
+  /// 注册失败退避重试（连接类失败 transport 就绪后 helper 不会再自动重发）
+  void _scheduleReRegister() {
+    if (_ua == null) return;
+    if (_retryCount >= 12) return; // 约1分钟后放弃，等待下次 start
+    _retryTimer?.cancel();
+    _retryTimer = Timer(Duration(seconds: 5 + _retryCount * 2), () {
+      _retryCount++;
+      _ua?.register();
+    });
   }
 
   @override

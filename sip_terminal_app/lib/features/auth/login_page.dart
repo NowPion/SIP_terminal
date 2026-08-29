@@ -77,6 +77,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final authState = ref.watch(authControllerProvider);
+    final ctrlError = authState.hasError ? authState.error.toString() : null;
+    final shownError = _error ?? ctrlError;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -138,8 +141,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         (v == null || v.length < 6) ? '密码至少 6 位' : null,
                   ),
                   const SizedBox(height: 24),
-                  if (_error != null) ...[
-                    Text(_error!,
+                  if (shownError != null) ...[
+                    Text(shownError,
                         style: TextStyle(color: theme.colorScheme.error),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 12),

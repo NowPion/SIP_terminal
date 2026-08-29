@@ -298,7 +298,7 @@
   <!-- 必须是运行 docker 的宿主机当前局域网 IP：客户端（安卓模拟器/真机）
        按此地址回送 RTP，容器内的 172.20.0.x 对客户端不可达。
        换网络后此处必须同步更新，否则 ICE 会连到别人的机器上并在 15s 后失败。 -->
-  <X-PRE-PROCESS cmd="set" data="external_rtp_ip=192.168.0.4"/>
+  <X-PRE-PROCESS cmd="set" data="external_rtp_ip=10.199.245.162"/>
 
   <!-- external_sip_ip
       Used as the public IP address for SDP.
@@ -311,7 +311,7 @@
        If unspecified, the bind_server_ip value is used.
        Used by: sofia.conf.xml dingaling.conf.xml
   -->
-  <X-PRE-PROCESS cmd="set" data="external_sip_ip=192.168.0.4"/>
+  <X-PRE-PROCESS cmd="set" data="external_sip_ip=10.199.245.162"/>
 
   <!-- unroll-loops
        Used to turn on sip loopback unrolling.
