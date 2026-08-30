@@ -10,3 +10,6 @@ ssh-mcp-audit.log
 tls_probe*.dart
 sip_terminal_app/android/build/
 sip_terminal_app/e2e-*
+
+docs/
+deploy/cloud/
