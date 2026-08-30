@@ -22,17 +22,37 @@
 
 ## 架构
 
+```mermaid
+flowchart TB
+    subgraph app["Flutter App (Android)"]
+        direction TB
+        UI["UI 层\n历史 / 拨号盘 / 通话 / 账号"]
+        ENGINE["sip_ua + flutter_webrtc\nSIP 状态机"]
+        DBL[("drift SQLite\n本地话单缓存")]
+    end
+
+    subgraph gateway["Caddy 网关 (TLS)"]
+        R1["/sipapi/* → Go API"]
+        R2["/ws → FreeSWITCH"]
+    end
+
+    subgraph core["Docker 网络"]
+        FS["FreeSWITCH\n5060/udp SIP · 5066 WS · 7443 WSS\nRTP 16384-16404"]
+        API["Go API (Gin)\n注册登录 JWT · 话单 CRUD\n/fsw/directory 动态目录"]
+        MYSQL[("MySQL 8\nusers · sip_accounts\ncall_records")]
+    end
+
+    UI --- ENGINE
+    UI --- DBL
+
+    ENGINE -- "WSS REGISTER / INVITE" --> R2 --> FS
+    FS -- "SRTP 媒体流 (UDP)" --> ENGINE
+    UI -- "HTTPS REST" --> R1 --> API
+    API --> MYSQL
+    FS -- "mod_xml_curl 认证查目录" --> API
 ```
-┌─────────────┐  SIP信令(WSS) + RTP媒体(WebRTC)   ┌──────────────┐
-│ Flutter App │◄─────────────────────────────────►│  FreeSWITCH  │
-│  (Android)  │                                    │   (Docker)   │
-└──────┬──────┘                                    └──────▲───────┘
-       │ HTTPS REST (JSON)                                │ mod_xml_curl
-       ▼                                                  │ 动态查分机目录
-┌────────────────┐   同一 docker 网络   ┌──────────────┐
-│ Go API (Gin)   │◄────────────────────►│    MySQL     │
-└────────────────┘                      └──────────────┘
-```
+
+三条关键链路：
 
 - **信令**：SIP over WebSocket（WSS），摘要认证（Digest）
 - **媒体**：WebRTC（DTLS-SRTP + ICE），编解码协商走 SDP
