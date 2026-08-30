@@ -1,17 +1,24 @@
 # SIP Terminal
 
+![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)
+![FreeSWITCH](https://img.shields.io/badge/FreeSWITCH-1.10-8D6E63?logo=freeswitch&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 基于 **SIP + WebRTC** 的软电话系统：Flutter 安卓客户端 + Go API + FreeSWITCH 交换服务，支持账号注册即自动分配 SIP 分机、语音互拨、通话记录云端同步。
 
 > 仅用于学习 SIP 协议与 VoIP 全栈落地，请勿用于非法通信场景。
 
 ## 功能特性
 
-- 📞 语音通话：拨打 / 接听 / 挂断 / 静音，通话计时
-- 👤 账号体系：注册即自动分配 SIP 分机（从 1001 起），JWT 登录
-- 📜 通话历史：本地 SQLite 缓存 + 服务端游标分页同步，断网不丢话单
-- 🔐 动态目录：FreeSWITCH 通过 mod_xml_curl 实时回调 API 查询分机，无需静态配置
-- 🌗 明暗双主题，遵循 Minimal & Direct 设计系统
-- 🔄 断线自动重连（指数退避），来电通知 + 前台麦克风服务保活
+- 语音通话：拨打 / 接听 / 挂断 / 静音，通话计时
+- 账号体系：注册即自动分配 SIP 分机（从 1001 起），JWT 登录
+- 通话历史：本地 SQLite 缓存 + 服务端游标分页同步，断网不丢话单
+- 动态目录：FreeSWITCH 通过 mod_xml_curl 实时回调 API 查询分机，无需静态配置
+- 明暗双主题，遵循 Minimal & Direct 设计系统
+- 断线自动重连（指数退避），来电通知 + 前台麦克风服务保活
 
 ## 架构
 
